@@ -1,52 +1,76 @@
 import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
-
-# Set to prevent infinite recursion
-MAX_PAGES_TO_CRAWL = 10
+import json
 
 
-class SimpleWebCrawler:
-    def __init__(self, base_url):
-        self.base_url = base_url
-        self.visited = set()  # Set to store visited URLs
-        self.to_visit = [base_url]  # Queue for URLs to visit
+def search_apartment_rent(min_size, max_size):
+    # URL for the POST request
+    url = "https://api.divar.ir/v8/postlist/w/search"
 
-    def crawl(self):
-        while self.to_visit and len(self.visited) < MAX_PAGES_TO_CRAWL:
-            url = self.to_visit.pop(0)
-            if url not in self.visited:
-                self.visit_page(url)
+    # Payload with minimum and maximum values passed as input
+    payload = {
+        "city_ids": ["1"],
+        "pagination_data": {
+            "@type": "type.googleapis.com/post_list.PaginationData",
+            "last_post_date": "2024-08-24T13:51:04.973912Z",
+            "page": 1,
+            "layer_page": 1,
+            "search_uid": "02a284cd-a3bc-4934-978c-ff750052bb27"
+        },
+        "search_data": {
+            "form_data": {
+                "data": {
+                    "category": {"str": {"value": "apartment-rent"}},
+                    "districts": {"repeated_string": {"value": ["302"]}},
+                    "rooms": {"repeated_string": {"value": ["یک"]}},
+                    "size": {"number_range": {"minimum": str(min_size), "maximum": str(max_size)}},
+                    "building-age": {"number_range": {"maximum": "15"}}
+                }
+            },
+            "server_payload": {
+                "@type": "type.googleapis.com/widgets.SearchData.ServerPayload",
+                "additional_form_data": {
+                    "data": {
+                        "sort": {"str": {"value": "sort_date"}}
+                    }
+                }
+            }
+        }
+    }
 
-    def visit_page(self, url):
-        print(f"Visiting: {url}")
-        try:
-            response = requests.get(url)
-            if response.status_code == 200:
-                self.visited.add(url)
-                self.extract_links(response.text, url)
-            else:
-                print(f"Failed to retrieve {url} (Status code: {response.status_code})")
-        except requests.RequestException as e:
-            print(f"Error fetching {url}: {e}")
+    # Headers (if necessary)
+    headers = {
+        'Content-Type': 'application/json'
+    }
 
-    def extract_links(self, html, base_url):
-        soup = BeautifulSoup(html, 'html.parser')
-        for link in soup.find_all('a', href=True):
-            href = link.get('href')
-            # Resolve relative links
-            full_url = urljoin(base_url, href)
-            # Ensure the link is within the same domain
-            if self.is_valid_link(full_url):
-                self.to_visit.append(full_url)
+    # Send the POST request
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
 
-    def is_valid_link(self, url):
-        # Ensure it's the same domain and not already visited
-        return (urlparse(url).netloc == urlparse(self.base_url).netloc and
-                url not in self.visited)
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Parse the response JSON
+        response_json = response.json()
+
+        # Extract list_widgets from the response
+        list_widgets = response_json.get('list_widgets', [])
+
+        # Extract specific fields from each item in list_widgets
+        for item in list_widgets:
+            data = item.get('data', {})
+            title = data.get('title', 'N/A')
+            middle_description_text = data.get('middle_description_text', 'N/A')
+            top_description_text = data.get('top_description_text', 'N/A')
+
+            # Print the extracted fields
+            print(f"Title: {title}")
+            print(f"Middle Description: {middle_description_text}")
+            print(f"Top Description: {top_description_text}")
+            print("-" * 50)
+
+    else:
+        print("Failed to retrieve data. Status code:", response.status_code)
 
 
-if __name__ == "__main__":
-    start_url = "https://divar.ir"
-    crawler = SimpleWebCrawler(start_url)
-    crawler.crawl()
+# Example usage with minimum and maximum inputs
+min_size = 60
+max_size = 80
+search_apartment_rent(min_size, max_size)
