@@ -3,6 +3,25 @@ import json
 import re
 import csv
 from datetime import datetime, timezone
+import uuid
+import os  # Added to check if the file exists
+
+
+def run_search_from_file(input_file, output_file):
+    # Open the CSV file that contains the search parameters
+    with open(input_file, mode='r', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        next(reader)  # Skip the header row
+
+        # Loop through each row in the file
+        for row in reader:
+            min_size = int(row[0])
+            max_size = int(row[1])
+            building_age = int(row[2])
+            rooms = row[3]
+
+            # Call the search_apartment_rent function with the parameters from the file
+            search_apartment_rent(min_size, max_size, rooms, building_age, output_file)
 
 
 def convert_to_number(text):
@@ -24,6 +43,9 @@ def search_apartment_rent(min_size, max_size, rooms, building_age, output_file):
     # Get the current time in ISO 8601 format with milliseconds and Z (UTC time)
     current_time = datetime.now(timezone.utc).isoformat(timespec='milliseconds')
 
+    # Generate a random UUID
+    search_uid = str(uuid.uuid4())  # Generate a random UUID for search_uid
+
     # Payload with minimum and maximum values passed as input
     payload = {
         "city_ids": ["1"],
@@ -32,7 +54,7 @@ def search_apartment_rent(min_size, max_size, rooms, building_age, output_file):
             "last_post_date": current_time,
             "page": 1,
             "layer_page": 1,
-            "search_uid": "02a284cd-a3bc-4934-978c-ff750052bb27"
+            "search_uid": search_uid  # Use the random UUID here
         },
         "search_data": {
             "form_data": {
@@ -71,11 +93,17 @@ def search_apartment_rent(min_size, max_size, rooms, building_age, output_file):
         # Extract list_widgets from the response
         list_widgets = response_json.get('list_widgets', [])
 
-        # Prepare CSV file
-        with open(output_file, mode='w', newline='', encoding='utf-8') as file:
+        # Check if the output file already exists
+        file_exists = os.path.exists(output_file)
+
+        # Open the file in append mode
+        with open(output_file, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
-            # Add rooms, building_age, min_size, and max_size to the CSV headers
-            writer.writerow(['id', 'title', 'rent', 'deposit', 'total', 'min_size', 'max_size', 'rooms', 'building_age'])
+
+            # Write the headers if the file is new
+            if not file_exists:
+                writer.writerow(
+                    ['id', 'title', 'rent', 'deposit', 'total', 'min_size', 'max_size', 'rooms', 'building_age'])
 
             # Extract specific fields from each item in list_widgets
             for idx, item in enumerate(list_widgets):
@@ -108,10 +136,7 @@ def search_apartment_rent(min_size, max_size, rooms, building_age, output_file):
         print("Failed to retrieve data. Status code:", response.status_code)
 
 
-# Example usage with minimum and maximum size, rooms, building age, and output file name
-min_size = 60
-max_size = 80
-rooms = 'یک'  # Example: 'یک' means one room in Persian
-building_age = 15  # Maximum age of the building
-output_file = 'apartment_rent_data.csv'
-search_apartment_rent(min_size, max_size, rooms, building_age, output_file)
+# Call the function to read from the generated file and perform searches
+input_file = 'search_parameters.csv'  # The file created in Step 1
+output_file = 'apartment_rent_data.csv'  # Output file for search results
+run_search_from_file(input_file, output_file)
