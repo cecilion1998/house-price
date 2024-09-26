@@ -17,7 +17,7 @@ def convert_to_number(text):
     return int(cleaned_text)
 
 
-def search_apartment_rent(min_size, max_size, output_file):
+def search_apartment_rent(min_size, max_size, rooms, building_age, output_file):
     # URL for the POST request
     url = "https://api.divar.ir/v8/postlist/w/search"
 
@@ -29,7 +29,7 @@ def search_apartment_rent(min_size, max_size, output_file):
         "city_ids": ["1"],
         "pagination_data": {
             "@type": "type.googleapis.com/post_list.PaginationData",
-            "last_post_date": current_time,  # Use dynamic current time here
+            "last_post_date": current_time,
             "page": 1,
             "layer_page": 1,
             "search_uid": "02a284cd-a3bc-4934-978c-ff750052bb27"
@@ -39,9 +39,9 @@ def search_apartment_rent(min_size, max_size, output_file):
                 "data": {
                     "category": {"str": {"value": "apartment-rent"}},
                     "districts": {"repeated_string": {"value": ["302"]}},
-                    "rooms": {"repeated_string": {"value": ["یک"]}},
+                    "rooms": {"repeated_string": {"value": [rooms]}},  # Dynamic rooms input
                     "size": {"number_range": {"minimum": str(min_size), "maximum": str(max_size)}},
-                    "building-age": {"number_range": {"maximum": "15"}}
+                    "building-age": {"number_range": {"maximum": str(building_age)}}  # Dynamic building age input
                 }
             },
             "server_payload": {
@@ -74,7 +74,8 @@ def search_apartment_rent(min_size, max_size, output_file):
         # Prepare CSV file
         with open(output_file, mode='w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
-            writer.writerow(['id', 'title', 'rent', 'deposit', 'total'])  # CSV headers
+            # Add rooms, building_age, min_size, and max_size to the CSV headers
+            writer.writerow(['id', 'title', 'rent', 'deposit', 'total', 'min_size', 'max_size', 'rooms', 'building_age'])
 
             # Extract specific fields from each item in list_widgets
             for idx, item in enumerate(list_widgets):
@@ -90,8 +91,8 @@ def search_apartment_rent(min_size, max_size, output_file):
                 # Calculate the total
                 total = (rent / 3000000) * 100000000 + deposit
 
-                # Write to CSV
-                writer.writerow([idx + 1, title, rent, deposit, int(total)])
+                # Write to CSV with min_size, max_size, rooms, and building_age
+                writer.writerow([idx + 1, title, rent, deposit, int(total), min_size, max_size, rooms, building_age])
 
                 # Optionally, print the extracted fields and total to console
                 print(f"Id: {idx + 1}")
@@ -99,14 +100,18 @@ def search_apartment_rent(min_size, max_size, output_file):
                 print(f"Rent: {rent} تومان")
                 print(f"Deposit: {deposit} تومان")
                 print(f"Total: {int(total)} تومان")
+                print(f"Min Size: {min_size}, Max Size: {max_size}")
+                print(f"Rooms: {rooms}, Building Age: {building_age}")
                 print("-" * 50)
 
     else:
         print("Failed to retrieve data. Status code:", response.status_code)
 
 
-# Example usage with minimum and maximum inputs and output file name
+# Example usage with minimum and maximum size, rooms, building age, and output file name
 min_size = 60
 max_size = 80
+rooms = 'یک'  # Example: 'یک' means one room in Persian
+building_age = 15  # Maximum age of the building
 output_file = 'apartment_rent_data.csv'
-search_apartment_rent(min_size, max_size, output_file)
+search_apartment_rent(min_size, max_size, rooms, building_age, output_file)
