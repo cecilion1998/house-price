@@ -4,10 +4,13 @@ import re
 import csv
 from datetime import datetime, timezone
 import uuid
-import os  # Added to check if the file exists
+import os
 
+# Global counter to ensure unique IDs across all requests
+unique_id_counter = 1
 
 def run_search_from_file(input_file, output_file):
+    global unique_id_counter  # Access the global counter
     # Open the CSV file that contains the search parameters
     with open(input_file, mode='r', encoding='utf-8') as file:
         reader = csv.reader(file)
@@ -17,11 +20,12 @@ def run_search_from_file(input_file, output_file):
         for row in reader:
             min_size = int(row[0])
             max_size = int(row[1])
-            building_age = int(row[2])
-            rooms = row[3]
+            min_building_age = int(row[2])
+            max_building_age = int(row[3])
+            rooms = row[4]
 
             # Call the search_apartment_rent function with the parameters from the file
-            search_apartment_rent(min_size, max_size, rooms, building_age, output_file)
+            search_apartment_rent(min_size, max_size, rooms, min_building_age, max_building_age, output_file)
 
 
 def convert_to_number(text):
@@ -36,7 +40,9 @@ def convert_to_number(text):
     return int(cleaned_text)
 
 
-def search_apartment_rent(min_size, max_size, rooms, building_age, output_file):
+def search_apartment_rent(min_size, max_size, rooms, min_building_age, max_building_age, output_file):
+    global unique_id_counter  # Access the global counter
+
     # URL for the POST request
     url = "https://api.divar.ir/v8/postlist/w/search"
 
@@ -63,7 +69,7 @@ def search_apartment_rent(min_size, max_size, rooms, building_age, output_file):
                     "districts": {"repeated_string": {"value": ["302"]}},
                     "rooms": {"repeated_string": {"value": [rooms]}},  # Dynamic rooms input
                     "size": {"number_range": {"minimum": str(min_size), "maximum": str(max_size)}},
-                    "building-age": {"number_range": {"maximum": str(building_age)}}  # Dynamic building age input
+                    "building-age": {"number_range": {"minimum": str(min_building_age), "maximum": str(max_building_age)}}  # Dynamic building age input
                 }
             },
             "server_payload": {
@@ -103,10 +109,10 @@ def search_apartment_rent(min_size, max_size, rooms, building_age, output_file):
             # Write the headers if the file is new
             if not file_exists:
                 writer.writerow(
-                    ['id', 'title', 'rent', 'deposit', 'total', 'min_size', 'max_size', 'rooms', 'building_age'])
+                    ['id', 'title', 'rent', 'deposit', 'total', 'min_size', 'max_size', 'rooms', 'min_building_age', 'max_building_age'])
 
             # Extract specific fields from each item in list_widgets
-            for idx, item in enumerate(list_widgets):
+            for item in list_widgets:
                 data = item.get('data', {})
                 title = data.get('title', 'N/A')
                 middle_description_text = data.get('middle_description_text', 'N/A')
@@ -119,18 +125,21 @@ def search_apartment_rent(min_size, max_size, rooms, building_age, output_file):
                 # Calculate the total
                 total = (rent / 3000000) * 100000000 + deposit
 
-                # Write to CSV with min_size, max_size, rooms, and building_age
-                writer.writerow([idx + 1, title, rent, deposit, int(total), min_size, max_size, rooms, building_age])
+                # Write to CSV with min_size, max_size, rooms, min_building_age, and max_building_age
+                writer.writerow([unique_id_counter, title, rent, deposit, int(total), min_size, max_size, rooms, min_building_age, max_building_age])
 
                 # Optionally, print the extracted fields and total to console
-                print(f"Id: {idx + 1}")
+                print(f"Id: {unique_id_counter}")
                 print(f"Title: {title}")
                 print(f"Rent: {rent} تومان")
                 print(f"Deposit: {deposit} تومان")
                 print(f"Total: {int(total)} تومان")
                 print(f"Min Size: {min_size}, Max Size: {max_size}")
-                print(f"Rooms: {rooms}, Building Age: {building_age}")
+                print(f"Rooms: {rooms}, Min Building Age: {min_building_age}, Max Building Age: {max_building_age}")
                 print("-" * 50)
+
+                # Increment the unique ID counter after each entry
+                unique_id_counter += 1
 
     else:
         print("Failed to retrieve data. Status code:", response.status_code)
